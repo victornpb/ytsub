@@ -124,7 +124,7 @@ function parseSubscriptions(filePath) {
 }
 
 async function downloadVideos(outputDir, url){
-  const archivePath = path.join(outputDir, 'archive.txt');
+  const archivePath = path.join(outputDir, '_archive.txt');
   try {
     await runCommand('yt-dlp', [
       '-P', outputDir,
