@@ -90,8 +90,7 @@ function moveFile(oldPath, newPath) {
 
 function parseSubscriptions(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
-  const lines = data.split('
-    ');
+  const lines = data.split('\n');
   const subscriptions = [];
   let currentSubscription = null;
 
