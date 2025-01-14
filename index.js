@@ -37,12 +37,12 @@ function main() {
 
 function displayHelp() {
   console.log(`
-    Usage: node index.js <command> <subscriptions.txt> [-t seconds]
+    Usage: ytsub <command> <subscriptions.txt> [-t interval]
 
     Commands:
-      start   Start processing the given subscriptions file
-      create  Create an example subscriptions.txt
-      --help  Show this help message
+      start <subscriptions.txt> [-t interval]  Start processing the given subscriptions file with an optional interval (default: 24h)
+      create                                   Create an example subscriptions.txt
+      --help                                   Show this help message
   `);
 }
 
@@ -89,7 +89,8 @@ function moveFile(oldPath, newPath) {
 
 function parseSubscriptions(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
-  const lines = data.split('\n');
+  const lines = data.split('
+    ');
   const subscriptions = [];
   let currentSubscription = null;
 
