@@ -1,0 +1,11 @@
+{
+  "name": "ytsub",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "ytsub": "index.js"
+  },
+  "author": "victornpb",
+  "license": "UNLICENSED"
+}

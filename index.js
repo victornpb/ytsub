@@ -1,11 +1,63 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { spawn } = require('child_process');
 const youtubedl = require('youtube-dl-exec');
 
-// Function to execute shell commands and show progress
-const runCommand = (command, args, cwd) => {
+const EXAMPLE_DIR = path.join(__dirname, "example");
+
+function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (args.length === 0 || args.includes("--help")) {
+    displayHelp();
+    process.exit(0);
+  } else if (command === "start") {
+    if (!args[1]) {
+      console.error("Error: Missing subscriptions file.");
+      displayHelp();
+      process.exit(1);
+    }
+    const subscriptionsFile = path.resolve(args[1]);
+    const baseDir = path.dirname(subscriptionsFile);
+    const interval = args.includes('-t') ? parseInt(args[args.indexOf('-t') + 1]) * 1000 : null;
+    processSubscriptions(subscriptionsFile, baseDir);
+    if (interval) {
+      setInterval(() => processSubscriptions(subscriptionsFile, baseDir), interval);
+    }
+  } else if (command === "create") {
+    createExample();
+    process.exit(0);
+  } else {
+    console.error("Unknown command:", command);
+    displayHelp();
+    process.exit(1);
+  }
+}
+
+function displayHelp() {
+  console.log(`
+    Usage: node index.js <command> <subscriptions.txt> [-t seconds]
+
+    Commands:
+      start   Start processing the given subscriptions file
+      create  Create an example subscriptions.txt
+      --help  Show this help message
+  `);
+}
+
+function createExample() {
+  const exampleFile = path.join(EXAMPLE_DIR, "subscriptions.txt");
+  const destinationFile = path.join(process.cwd(), "subscriptions.txt");
+  if (fs.existsSync(destinationFile)) {
+    console.log("subscriptions.txt already exists, not overwriting.");
+  } else {
+    fs.copyFileSync(exampleFile, destinationFile);
+    console.log("Created example subscriptions.txt to the current directory.");
+  }
+}
+
+function runCommand (command, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: 'inherit' });
 
@@ -21,10 +73,9 @@ const runCommand = (command, args, cwd) => {
       }
     });
   });
-};
+}
 
-// Function to move files without changing modified dates
-const moveFile = (oldPath, newPath) => {
+function moveFile(oldPath, newPath) {
   return new Promise((resolve, reject) => {
     fs.rename(oldPath, newPath, (err) => {
       if (err) {
@@ -34,21 +85,17 @@ const moveFile = (oldPath, newPath) => {
       }
     });
   });
-};
+}
 
-// Function to parse the subscriptions file
-const parseSubscriptions = (filePath) => {
+function parseSubscriptions(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
   const lines = data.split('\n');
-  let baseDir = '';
   const subscriptions = [];
   let currentSubscription = null;
 
   lines.forEach((line) => {
     line = line.trim();
-    if (line.startsWith('base_dir=')) {
-      baseDir = line.split('=')[1].replace('~', os.homedir());
-    } else if (line.startsWith('[') && line.endsWith(']')) {
+    if (line.startsWith('[') && line.endsWith(']')) {
       if (currentSubscription) {
         subscriptions.push(currentSubscription);
       }
@@ -73,11 +120,10 @@ const parseSubscriptions = (filePath) => {
     subscriptions.push(currentSubscription);
   }
 
-  return { baseDir, subscriptions };
-};
+  return { subscriptions };
+}
 
-// Function to download videos using yt-dlp with archive support
-const downloadVideos = async (outputDir, url) => {
+async function downloadVideos(outputDir, url){
   const archivePath = path.join(outputDir, 'archive.txt');
   try {
     await runCommand('yt-dlp', [
@@ -89,11 +135,10 @@ const downloadVideos = async (outputDir, url) => {
   } catch (error) {
     console.error(`Failed to download videos from ${url}: ${error}`);
   }
-};
+}
 
-// Function to organize downloaded videos
-const organizeVideos = async (outputDir, filters) => {
-  console.log('Organizing Videos...', outputDir, filters);
+async function organizeVideos(outputDir, filters){
+  console.log('Organizing files', outputDir, filters);
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
     const filePath = path.join(outputDir, file);
@@ -110,12 +155,11 @@ const organizeVideos = async (outputDir, filters) => {
       }
     }
   }
-};
+}
 
-// Main function to process subscriptions
-const processSubscriptions = async () => {
+async function processSubscriptions(subscriptionsFile, baseDir){
   try {
-    const { baseDir, subscriptions } = parseSubscriptions('subscriptions.txt');
+    const { subscriptions } = parseSubscriptions(subscriptionsFile);
     for (const subscription of subscriptions) {
       const outputDir = path.join(baseDir, subscription.name);
       fs.mkdirSync(outputDir, { recursive: true });
@@ -127,8 +171,6 @@ const processSubscriptions = async () => {
   } catch (error) {
     console.error(`Error: ${error.message}`);
   }
-};
+}
 
-// Run the script immediately and then every 24 hours
-processSubscriptions();
-// setInterval(processSubscriptions, 24 * 60 * 60 * 1000);
+main();
