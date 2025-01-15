@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 const { spawn } = require('child_process');
 
 const EXAMPLE_DIR = path.join(__dirname, 'example');
@@ -31,8 +32,12 @@ function main() {
     process.exit(1);
   }
 
+  const cliArgs = {
+    dry: args.includes('--dry'),
+  };
+
   const baseDir = path.dirname(subscriptionsFile);
-  processSubscriptions(subscriptionsFile, baseDir);
+  processSubscriptions(subscriptionsFile, baseDir, cliArgs);
 }
 
 function displayHelp() {
@@ -47,6 +52,7 @@ function displayHelp() {
 
     Options:
       -t <interval>         Set a refresh interval in seconds (default: none)
+      --dry                 Parse the subscriptions.txt file and don't call yt-dlp
   `);
 }
 
@@ -95,6 +101,7 @@ function parseTxtFile(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
   const lines = data.split('\n');
   const sections = [];
+  const preSection = [];
   let currentSection = null;
 
   // Identify sections and split content
@@ -108,6 +115,8 @@ function parseTxtFile(filePath) {
       sections.push(currentSection);
     } else if (currentSection) {
       currentSection.content.push(line);
+    } else {
+      preSection.push(line);
     }
   }
 
@@ -123,15 +132,33 @@ function parseTxtFile(filePath) {
     }
     delete section.content;
   }
-  return sections;
+
+  return { preSection, sections };
 }
 
 function parseSubscriptions(filePath) {
-  const sections = parseTxtFile(filePath);
-  return sections.map(({ sectionName, frontMatter, body }) => {
+  const { preSection, sections} = parseTxtFile(filePath);
+
+  const globalArgs = [];
+  const globalOrganize = {};
+  for (const line of preSection) {
+    if (line.startsWith('-organize ')) {
+      const [, arg, key, value] = line.match(/^-(organize)\s+(.+?)\s*:\s*(.+)/) || [];
+      const [, pattern, flags] = value.match(/^\/(.*)\/([gimsuy]*)$/) || [];
+      try {
+        if (!pattern) throw 'Invalid pattern!';
+        globalOrganize[key] = new RegExp(pattern, flags);
+      } catch (err) {
+        console.error(`Invalid Regular Expression at PreSection ${line} ! ${err}`);
+      }
+    } else {
+      globalArgs.push(line);
+    }
+  }
+
+  const subscriptions = sections.map(({ sectionName, frontMatter, body }) => {
     const args = [];
     const organize = {};
-    let urls = [];
 
     for (const line of frontMatter) {
       if (line.startsWith('-organize ')) {
@@ -148,10 +175,14 @@ function parseSubscriptions(filePath) {
       }
     }
 
-    urls = body;
-
-    return { name: sectionName, args, organize, urls };
+    return { name: sectionName, args, organize, urls: body };
   });
+
+  return {
+    globalArgs,
+    globalOrganize,
+    subscriptions,
+  };
 }
 
 
@@ -190,17 +221,20 @@ async function organizeVideos(outputDir, filters) {
   }
 }
 
-async function processSubscriptions(subscriptionsFile, baseDir) {
+async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
   try {
-    const subscriptions = parseSubscriptions(subscriptionsFile);
-    console.log(subscriptions);
+    const subsObject = parseSubscriptions(subscriptionsFile);
+    const { globalArgs, globalOrganize, subscriptions } = subsObject;
+    console.log(util.inspect(subsObject, false, null, true));
+    if (cliArgs.dry) return;
+
     for (const subscription of subscriptions) {
       const outputDir = path.join(baseDir, subscription.name);
       fs.mkdirSync(outputDir, { recursive: true });
       for (const url of subscription.urls) {
-        await downloadVideos(outputDir, url, subscription.args);
+        await downloadVideos(outputDir, url, [...globalArgs, ...subscription.args]);
       }
-      await organizeVideos(outputDir, subscription.organize);
+      await organizeVideos(outputDir, {...globalOrganize, ...subscription.organize});
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);
