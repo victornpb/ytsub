@@ -11,6 +11,12 @@ https://www.youtube.com/playlist?list=PLZdXRHYAVxTJno6oFF9nLGuwXNGYHmE8U
 https://www.youtube.com/@JakeTrains
 
 [youtube/Kids_Toys_Play]
+goo
+--foo bar
+-ass
+-organize foo: /abc/i
+-organize boo: babc/d
+----
 https://www.youtube.com/@KidsToysPlayChannel
 
 [youtube/Rick_Beato]
@@ -19,3 +25,10 @@ https://www.youtube.com/@rickbeato240
 
 [youtube/BBC_News]
 https://www.youtube.com/@BBCNews
+
+[JustinWerlein]
+Recaps=/Recap/i
+Charting Session=/Charting[ _]Session/i
+----
+https://www.youtube.com/@JustinWerlein/videos
+

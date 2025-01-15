@@ -87,48 +87,77 @@ function moveFile(oldPath, newPath) {
   });
 }
 
-function parseSubscriptions(filePath) {
+function parseTxtFile(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
   const lines = data.split('\n');
-  const subscriptions = [];
-  let currentSubscription = null;
+  const sections = [];
+  let currentSection = null;
 
-  lines.forEach((line) => {
-    line = line.trim();
-    if (line.startsWith('[') && line.endsWith(']')) {
-      if (currentSubscription) {
-        subscriptions.push(currentSubscription);
-      }
-      currentSubscription = {
-        name: line.slice(1, -1),
-        filters: {},
-        urls: [],
-      };
-    } else if (line.startsWith('-') && line.includes('=')) {
-      const [key, value] = line.split('=');
-      const match = value.match(/^\/(.*)\/([gimsuy]*)$/);
-      if (match) {
-        const [, pattern, flags] = match;
-        currentSubscription.filters[key.slice(1)] = new RegExp(pattern, flags);
-      }
-    } else if (line.startsWith('http')) {
-      currentSubscription.urls.push(line);
+  // Identify sections and split content
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) {
+      continue;
     }
-  });
-
-  if (currentSubscription) {
-    subscriptions.push(currentSubscription);
+    if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+      currentSection = { sectionName: trimmedLine.slice(1, -1), content: [] };
+      sections.push(currentSection);
+    } else if (currentSection) {
+      currentSection.content.push(line);
+    }
   }
 
-  return { subscriptions };
+  // Split front matter and body
+  for (const section of sections) {
+    const frontMatterIndex = section.content.findIndex(line => /^-{4,}$/.test(line.trim()));
+    if (frontMatterIndex !== -1) {
+      section.frontMatter = section.content.slice(0, frontMatterIndex);
+      section.body = section.content.slice(frontMatterIndex + 1);
+    } else {
+      section.frontMatter = [];
+      section.body = section.content;
+    }
+    delete section.content;
+  }
+  return sections;
 }
 
-async function downloadVideos(outputDir, url){
+function parseSubscriptions(filePath) {
+  const sections = parseTxtFile(filePath);
+  return sections.map(({ sectionName, frontMatter, body }) => {
+    const args = [];
+    const organize = {};
+    let urls = [];
+
+    for (const line of frontMatter) {
+      if (line.startsWith('-organize ')) {
+        const [, arg, key, value] = line.match(/^-(organize)\s+(.+?)\s*:\s*(.+)/) || [];
+        const [, pattern, flags] = value.match(/^\/(.*)\/([gimsuy]*)$/) || [];
+        try {
+          if (!pattern) throw 'Invalid pattern!';
+          organize[key] = new RegExp(pattern, flags);
+        } catch (err) {
+          console.error(`Invalid Regular Expression at [${sectionName}] ${line} ! ${err}`);
+        }
+      } else {
+        args.push(line);
+      }
+    }
+
+    urls = body;
+
+    return { name: sectionName, args, organize, urls };
+  });
+}
+
+
+async function downloadVideos(outputDir, url, args) {
   const archivePath = path.join(outputDir, '_archive.txt');
   try {
     await runCommand('yt-dlp', [
       '-P', outputDir,
       '--download-archive', archivePath,
+      ...args,
       url
     ], outputDir);
     console.log(`Downloaded videos from ${url} to ${outputDir}`);
@@ -137,7 +166,7 @@ async function downloadVideos(outputDir, url){
   }
 }
 
-async function organizeVideos(outputDir, filters){
+async function organizeVideos(outputDir, filters) {
   console.log('Organizing files', outputDir, filters);
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
@@ -157,16 +186,17 @@ async function organizeVideos(outputDir, filters){
   }
 }
 
-async function processSubscriptions(subscriptionsFile, baseDir){
+async function processSubscriptions(subscriptionsFile, baseDir) {
   try {
-    const { subscriptions } = parseSubscriptions(subscriptionsFile);
+    const subscriptions = parseSubscriptions(subscriptionsFile);
+    console.log(subscriptions);
     for (const subscription of subscriptions) {
       const outputDir = path.join(baseDir, subscription.name);
       fs.mkdirSync(outputDir, { recursive: true });
       for (const url of subscription.urls) {
-        await downloadVideos(outputDir, url);
+        await downloadVideos(outputDir, url, subscription.args);
       }
-      await organizeVideos(outputDir, subscription.filters);
+      await organizeVideos(outputDir, subscription.organize);
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);
