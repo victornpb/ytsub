@@ -2,48 +2,47 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-// const youtubedl = require('youtube-dl-exec');
 
 const EXAMPLE_DIR = path.join(__dirname, "example");
 
 function main() {
   const args = process.argv.slice(2);
-  const command = args[0];
+  let subscriptionsFile = "subscriptions.txt";
 
-  if (args.length === 0 || args.includes("--help")) {
+  if (args.length === 0) {
+    subscriptionsFile = path.resolve("subscriptions.txt");
+  } else if (args.includes("--help") || args.includes("-h")) {
     displayHelp();
     process.exit(0);
-  } else if (command === "start") {
-    if (!args[1]) {
-      console.error("Error: Missing subscriptions file.");
-      displayHelp();
-      process.exit(1);
-    }
-    const subscriptionsFile = path.resolve(args[1]);
-    const baseDir = path.dirname(subscriptionsFile);
-    const interval = args.includes('-t') ? parseInt(args[args.indexOf('-t') + 1]) * 1000 : null;
-    processSubscriptions(subscriptionsFile, baseDir);
-    if (interval) {
-      setInterval(() => processSubscriptions(subscriptionsFile, baseDir), interval);
-    }
-  } else if (command === "create") {
+  } else if (args.includes("-create")) {
     createExample();
     process.exit(0);
   } else {
-    console.error("Unknown command:", command);
+    subscriptionsFile = path.resolve(args[0]);
+  }
+
+  if (!fs.existsSync(subscriptionsFile)) {
+    console.error("Error: subscriptions file not found.");
     displayHelp();
     process.exit(1);
   }
+
+  const baseDir = path.dirname(subscriptionsFile);
+  processSubscriptions(subscriptionsFile, baseDir);
 }
 
 function displayHelp() {
   console.log(`
-    Usage: ytsub <command> <subscriptions.txt> [-t interval]
+    Usage: ytsub [subscriptions.txt] [-t interval]
 
     Commands:
-      start <subscriptions.txt> [-t interval]  Start processing the given subscriptions file with an optional interval (default: 24h)
-      create                                   Create an example subscriptions.txt
-      --help                                   Show this help message
+      ytsub                 Try to find subscriptions.txt in current directory
+      ytsub <path>          Use a specific subscriptions file
+      ytsub --help, -h      Show this help message
+      ytsub -create         Create an example subscriptions.txt
+
+    Options:
+      -t <interval>         Set a refresh interval in seconds (default: none)
   `);
 }
 
