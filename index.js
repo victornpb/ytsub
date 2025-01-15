@@ -4,10 +4,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const EXAMPLE_DIR = path.join(__dirname, 'example');
-
 function main() {
   const args = process.argv.slice(2);
-  let subscriptionsFile = 'subscriptions.txt';
+  let subscriptionsFile;
 
   if (args.length === 0) {
     subscriptionsFile = path.resolve('subscriptions.txt');
@@ -18,11 +17,16 @@ function main() {
     createExample();
     process.exit(0);
   } else {
-    subscriptionsFile = path.resolve(args[0]);
+    let inputPath = path.resolve(args[0]);
+    if (fs.existsSync(inputPath) && fs.statSync(inputPath).isDirectory()) {
+      subscriptionsFile = path.join(inputPath, 'subscriptions.txt');
+    } else {
+      subscriptionsFile = inputPath;
+    }
   }
 
   if (!fs.existsSync(subscriptionsFile)) {
-    console.error('Error: subscriptions file not found.');
+    console.error(`Error: subscriptions file not found at ${subscriptionsFile}.`);
     displayHelp();
     process.exit(1);
   }
@@ -37,7 +41,7 @@ function displayHelp() {
 
     Commands:
       ytsub                 Try to find subscriptions.txt in current directory
-      ytsub <path>          Use a specific subscriptions file
+      ytsub <path>          Use a specific subscriptions file or directory containing one
       ytsub --help, -h      Show this help message
       ytsub --create, -c    Create an example subscriptions.txt
 
