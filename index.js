@@ -3,18 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const EXAMPLE_DIR = path.join(__dirname, "example");
+const EXAMPLE_DIR = path.join(__dirname, 'example');
 
 function main() {
   const args = process.argv.slice(2);
-  let subscriptionsFile = "subscriptions.txt";
+  let subscriptionsFile = 'subscriptions.txt';
 
   if (args.length === 0) {
-    subscriptionsFile = path.resolve("subscriptions.txt");
-  } else if (args.includes("--help") || args.includes("-h")) {
+    subscriptionsFile = path.resolve('subscriptions.txt');
+  } else if (args.includes('--help') || args.includes('-h')) {
     displayHelp();
     process.exit(0);
-  } else if (args.includes("-create")) {
+  } else if (args.includes('--create') || args.includes('-c')) {
     createExample();
     process.exit(0);
   } else {
@@ -22,7 +22,7 @@ function main() {
   }
 
   if (!fs.existsSync(subscriptionsFile)) {
-    console.error("Error: subscriptions file not found.");
+    console.error('Error: subscriptions file not found.');
     displayHelp();
     process.exit(1);
   }
@@ -39,7 +39,7 @@ function displayHelp() {
       ytsub                 Try to find subscriptions.txt in current directory
       ytsub <path>          Use a specific subscriptions file
       ytsub --help, -h      Show this help message
-      ytsub -create         Create an example subscriptions.txt
+      ytsub --create, -c    Create an example subscriptions.txt
 
     Options:
       -t <interval>         Set a refresh interval in seconds (default: none)
@@ -47,13 +47,13 @@ function displayHelp() {
 }
 
 function createExample() {
-  const exampleFile = path.join(EXAMPLE_DIR, "subscriptions.txt");
-  const destinationFile = path.join(process.cwd(), "subscriptions.txt");
+  const exampleFile = path.join(EXAMPLE_DIR, 'subscriptions.txt');
+  const destinationFile = path.join(process.cwd(), 'subscriptions.txt');
   if (fs.existsSync(destinationFile)) {
-    console.log("subscriptions.txt already exists, not overwriting.");
+    console.log('subscriptions.txt already exists, not overwriting.');
   } else {
     fs.copyFileSync(exampleFile, destinationFile);
-    console.log("Created example subscriptions.txt to the current directory.");
+    console.log('Created example subscriptions.txt to the current directory.');
   }
 }
 
