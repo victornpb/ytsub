@@ -62,7 +62,7 @@ async function main() {
   if (cliArgs.interval) {
     console.log(`Running with interval: ${secondsToDhms(cliArgs.interval / 1000)}.`);
     setInterval(async () => {
-      if (isRunning) return console.log('Already running skipping interval. (consider not running this frequent)');
+      if (isRunning) return console.log('\n\nAlready running! skipping interval, consider not running this frequently.\n\n');
       await processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
       console.log(`Next run in ${secondsToDhms(cliArgs.interval / 1000)}...`);
     }, cliArgs.interval);  
@@ -108,19 +108,44 @@ function parseTxtFile(filePath) {
   const preSection = [];
   let currentSection = null;
 
+  function stripInlineComments(line) {
+    let inSingleQuotes = false;
+    let inDoubleQuotes = false;
+    let inRegex = false;
+    let result = '';
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const prevChar = line[i - 1];
+      if (char === '"' && !inSingleQuotes && !inRegex) {
+        inDoubleQuotes = !inDoubleQuotes;
+      } else if (char === "'" && !inDoubleQuotes && !inRegex) {
+        inSingleQuotes = !inSingleQuotes;
+      } else if (char === '/' && !inSingleQuotes && !inDoubleQuotes && prevChar !== '\\') {
+        inRegex = !inRegex;
+      } else if (char === ';' && !inSingleQuotes && !inDoubleQuotes && !inRegex) {
+        break; // Ignore everything after this point as a comment
+      }
+      result += char;
+    }
+    return result.trim();
+  }
+
   // Identify sections and split content
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) {
-      continue;
+      continue; // Skip blank lines and full-line comments
     }
-    if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
-      currentSection = { sectionName: trimmedLine.slice(1, -1), content: [] };
+
+    const strippedLine = stripInlineComments(trimmedLine);
+
+    if (strippedLine.startsWith('[') && strippedLine.endsWith(']')) {
+      currentSection = { sectionName: strippedLine.slice(1, -1), content: [] };
       sections.push(currentSection);
     } else if (currentSection) {
-      currentSection.content.push(line);
+      currentSection.content.push(strippedLine);
     } else {
-      preSection.push(line);
+      preSection.push(strippedLine);
     }
   }
 
