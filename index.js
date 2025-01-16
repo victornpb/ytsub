@@ -35,7 +35,7 @@ function parseCliArgs(args) {
   return cliArgs;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const cliArgs = parseCliArgs(args);
 
@@ -56,13 +56,16 @@ function main() {
   }
 
   const baseDir = path.dirname(cliArgs.subscriptionsFile);
-
+  
   if (cliArgs.interval) {
-    console.log(`Running with interval: ${cliArgs.interval / 1000} seconds`);
-    setInterval(() => processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs), cliArgs.interval);
+    console.log(`Running with interval: ${secondsToDhms(cliArgs.interval / 1000)}.`);
+    setInterval(async () => {
+      await processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
+      console.log(`Next run in ${secondsToDhms(cliArgs.interval / 1000)}...`);
+    }, cliArgs.interval);  
   }
 
-  processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
+  await processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
 }
 
 
@@ -274,6 +277,21 @@ function moveFile(oldPath, newPath) {
       }
     });
   });
+}
+
+
+function secondsToDhms(seconds) {
+  seconds = Number(seconds);
+  const d = Math.floor(seconds / (3600 * 24));
+  const h = Math.floor((seconds % (3600 * 24)) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return [
+    d > 0 ? `${d}d` : null,
+    h > 0 ? `${h}h` : null,
+    m > 0 ? `${m}m` : null,
+    `${s}s`
+  ].filter(Boolean).join(' ');
 }
 
 
