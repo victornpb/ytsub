@@ -226,6 +226,7 @@ async function organizeVideos(outputDir, filters) {
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
     const filePath = path.join(outputDir, file);
+    if (file.includes('_archive.txt') || !/\.(mp4|mkv|webm|description|json|srt|vtt|ass|lrc)/.text(file)) continue;
     if (fs.lstatSync(filePath).isFile()) {
       for (const [subDir, regex] of Object.entries(filters)) {
         if (regex.test(file)) {

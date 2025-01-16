@@ -1,3 +1,35 @@
+# global arguments
+
+#--download-archive _archive.txt
+
+#--restrict-filenames
+#--windows-filenames
+
+-S vcodec:h264,res,acodec:m4a
+
+#--write-info-json
+#--write-description
+#--write-thumbnail   
+
+#--sub-langs all
+#--sub-langs "en.*,pt.*"
+#--write-subs
+#--write-auto-subs
+#--embed-subs --compat-options no-keep-subs
+# --convert-subs none # ass, lrc, srt, vtt
+
+--embed-thumbnail 
+--embed-chapters
+
+--parse-metadata "description:(?s)(?P<meta_comment>.+)"
+--embed-metadata
+--xattrs
+
+--merge-output-format mp4
+--remux-video mp4
+
+
+
 [youtube/NOVA_PBS]
 https://www.youtube.com/@novapbs
 
@@ -10,25 +42,23 @@ https://www.youtube.com/playlist?list=PLZdXRHYAVxTJno6oFF9nLGuwXNGYHmE8U
 [youtube/Jake_Trains]
 https://www.youtube.com/@JakeTrains
 
-[youtube/Kids_Toys_Play]
-goo
---foo bar
--ass
--organize foo: /abc/i
--organize boo: babc/d
+[Kids/Kids_Toys_Play]
+--write-thumbnail
+-organize Cars: /car/i
+-organize Figurines: /figurine/i
 ----
 https://www.youtube.com/@KidsToysPlayChannel
 
-[youtube/Rick_Beato]
+[Kids/Rick_Beato]
 https://www.youtube.com/@RickBeato
 https://www.youtube.com/@rickbeato240
 
-[youtube/BBC_News]
+[News/BBC_News]
 https://www.youtube.com/@BBCNews
 
-[JustinWerlein]
-Recaps=/Recap/i
-Charting Session=/Charting[ _]Session/i
+[Trading/Justin Werlein]
+-organize Recaps:/Recap/i
+-organize Charting Session:/Charting[ _]Session/i
 ----
 https://www.youtube.com/@JustinWerlein/videos
 
