@@ -128,7 +128,8 @@ function parseSubscriptions(filePath) {
         console.error(`Invalid Regular Expression at PreSection ${line} ! ${err}`);
       }
     } else {
-      globalArgs.push(line);
+      const args = line.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
+      globalArgs.push(...args);
     }
   }
 
@@ -147,7 +148,8 @@ function parseSubscriptions(filePath) {
           console.error(`Invalid Regular Expression at [${sectionName}] ${line} ! ${err}`);
         }
       } else {
-        args.push(line);
+        const argsp = line.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
+        args.push(...argsp);
       }
     }
 
@@ -202,8 +204,7 @@ async function downloadVideos(outputDir, url, args) {
 function runCommand(command, args, cwd) {
   return new Promise((resolve, reject) => {
 
-    const argsp = args.join(' ').match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
-    const child = spawn(command, argsp, { cwd, stdio: 'inherit' });
+    const child = spawn(command, args, { cwd, stdio: 'inherit' });
 
     child.on('error', (error) => {
       reject(`Error: ${error.message}`);
