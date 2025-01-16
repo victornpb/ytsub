@@ -5,6 +5,7 @@ const util = require('util');
 const { spawn } = require('child_process');
 
 const EXAMPLE_DIR = path.join(__dirname, 'example');
+const ARCHIVE_FILENAME = '_archive.txt';
 
 let isRunning = false;
 
@@ -130,28 +131,24 @@ function parseTxtFile(filePath) {
     return result.trim();
   }
 
-  // Identify sections and split content
+  // Identify [sections] and its content
   for (const line of lines) {
     const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) {
-      continue; // Skip blank lines and full-line comments
-    }
-
+    if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) continue; // Skip blank lines and full-line comments
     const strippedLine = stripInlineComments(trimmedLine);
-
-    if (strippedLine.startsWith('[') && strippedLine.endsWith(']')) {
+    if (strippedLine.startsWith('[') && strippedLine.endsWith(']')) { // found [section]
       currentSection = { sectionName: strippedLine.slice(1, -1), content: [] };
       sections.push(currentSection);
-    } else if (currentSection) {
+    } else if (currentSection) { // section content
       currentSection.content.push(strippedLine);
-    } else {
+    } else { // lines before any sections
       preSection.push(strippedLine);
     }
   }
 
-  // Split front matter and body
+  // Parse section content into frontmatter and body
   for (const section of sections) {
-    const frontMatterIndex = section.content.findIndex(line => /^-{4,}$/.test(line.trim()));
+    const frontMatterIndex = section.content.findIndex(line => /^\s*[-=]{4,}\s*$/.test(line)); //---- or ====
     if (frontMatterIndex !== -1) {
       section.frontMatter = section.content.slice(0, frontMatterIndex);
       section.body = section.content.slice(frontMatterIndex + 1);
@@ -168,9 +165,9 @@ function parseTxtFile(filePath) {
 
 function parseSubscriptions(filePath) {
   const { preSection, sections } = parseTxtFile(filePath);
-
   const globalArgs = [];
   const globalOrganize = {};
+
   for (const line of preSection) {
     if (line.startsWith('-organize ')) {
       const [, arg, key, value] = line.match(/^-(organize)\s+["']?(.+?)["']?\s*:\s*(.+)/) || [];
@@ -242,7 +239,7 @@ async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
 
 
 async function downloadVideos(outputDir, url, args) {
-  const archivePath = path.join(outputDir, '_archive.txt');
+  const archivePath = path.join(outputDir, ARCHIVE_FILENAME);
   try {
     await runCommand('yt-dlp', [
       '-P', outputDir,
@@ -259,30 +256,19 @@ async function downloadVideos(outputDir, url, args) {
 
 function runCommand(command, args, cwd) {
   return new Promise((resolve, reject) => {
-
     const child = spawn(command, args, { cwd, stdio: 'inherit' });
-
-    child.on('error', (error) => {
-      reject(`Error: ${error.message}`);
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(`Process exited with code ${code}`);
-      } else {
-        resolve();
-      }
-    });
+    child.on('error', (error) => reject(`Error: ${error.message}`));
+    child.on('close', (code) => code !== 0 ? reject(`Process exited with code ${code}`) : resolve());
   });
 }
 
 
 async function organizeVideos(outputDir, filters) {
-  console.log('Organizing files', outputDir, filters);
+  console.log('  Organizing files', outputDir, filters);
   const files = fs.readdirSync(outputDir);
   for (const file of files) {
     const filePath = path.join(outputDir, file);
-    if (file === '_archive.txt' || !/\.(mp4|m4v|mkv|webm|description|json|srt|vtt|ass|lrc)$/.test(file)) continue;
+    if (file === ARCHIVE_FILENAME || !/\.(mp4|m4v|mkv|webm|jpg|png|webp|m4a|description|json|srt|vtt|ass|lrc)$/.test(file)) continue;
     if (fs.lstatSync(filePath).isFile()) {
       for (const [subDir, regex] of Object.entries(filters)) {
         if (regex.test(file)) {
@@ -301,13 +287,7 @@ async function organizeVideos(outputDir, filters) {
 
 function moveFile(oldPath, newPath) {
   return new Promise((resolve, reject) => {
-    fs.rename(oldPath, newPath, (err) => {
-      if (err) {
-        reject(`Error moving file: ${err.message}`);
-      } else {
-        resolve();
-      }
-    });
+    fs.rename(oldPath, newPath, (err) => err ? reject(`Error moving file: ${err.message}`) : resolve());
   });
 }
 
@@ -322,8 +302,8 @@ function secondsToDhms(seconds) {
     d > 0 ? `${d}d` : null,
     h > 0 ? `${h}h` : null,
     m > 0 ? `${m}m` : null,
-    `${s}s`
-  ].filter(Boolean).join(' ');
+    s != 0 ? `${s}s` : null,
+  ].filter(Boolean).join(' ') || `${seconds}s`;
 }
 
 
