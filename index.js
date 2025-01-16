@@ -46,7 +46,7 @@ function displayHelp() {
 
     Commands:
       ytsub                 Try to find subscriptions.txt in current directory
-      ytsub <path>          Use a specific subscriptions file or directory containing one
+      ytsub <path>          Use a specific subscriptions.txt file or directory containing one
       ytsub --help, -h      Show this help message
       ytsub --create, -c    Create an example subscriptions.txt
 
@@ -69,7 +69,9 @@ function createExample() {
 
 function runCommand (command, args, cwd) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit' });
+
+    const argsp = args.join(' ').match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
+    const child = spawn(command, argsp, { cwd, stdio: 'inherit' });
 
     child.on('error', (error) => {
       reject(`Error: ${error.message}`);
