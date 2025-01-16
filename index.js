@@ -6,6 +6,8 @@ const { spawn } = require('child_process');
 
 const EXAMPLE_DIR = path.join(__dirname, 'example');
 
+let isRunning = false;
+
 
 function parseCliArgs(args) {
   const cliArgs = {
@@ -56,10 +58,11 @@ async function main() {
   }
 
   const baseDir = path.dirname(cliArgs.subscriptionsFile);
-  
+
   if (cliArgs.interval) {
     console.log(`Running with interval: ${secondsToDhms(cliArgs.interval / 1000)}.`);
     setInterval(async () => {
+      if (isRunning) return console.log('Already running skipping interval. (consider not running this frequent)');
       await processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
       console.log(`Next run in ${secondsToDhms(cliArgs.interval / 1000)}...`);
     }, cliArgs.interval);  
@@ -189,6 +192,7 @@ function parseSubscriptions(filePath) {
 
 
 async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
+  isRunning = true;
   try {
     const subsObject = parseSubscriptions(subscriptionsFile);
     const { globalArgs, globalOrganize, subscriptions } = subsObject;
@@ -205,6 +209,9 @@ async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);
+  }
+  finally{
+    isRunning = false;
   }
 }
 
