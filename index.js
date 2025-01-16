@@ -7,49 +7,72 @@ const { spawn } = require('child_process');
 const EXAMPLE_DIR = path.join(__dirname, 'example');
 
 
-function main() {
-  const args = process.argv.slice(2);
-  let subscriptionsFile;
+function parseCliArgs(args) {
+  const cliArgs = {
+    help: args.includes('--help') || args.includes('-h'),
+    dry: args.includes('--dry'),
+    create: args.includes('--create') || args.includes('-c'),
+    interval: null,
+    subscriptionsFile: null,
+  };
 
-  if (args.length === 0) {
-    subscriptionsFile = path.resolve('subscriptions.txt');
-  } else if (args.includes('--help') || args.includes('-h')) {
-    displayHelp();
-    process.exit(0);
-  } else if (args.includes('--create') || args.includes('-c')) {
-    createExample();
-    process.exit(0);
-  } else {
-    let inputPath = path.resolve(args[0]);
-    if (fs.existsSync(inputPath) && fs.statSync(inputPath).isDirectory()) {
-      subscriptionsFile = path.join(inputPath, 'subscriptions.txt');
-    } else {
-      subscriptionsFile = inputPath;
+  const intervalIndex = args.findIndex(arg => arg === '-t');
+  if (intervalIndex !== -1 && args[intervalIndex + 1]) {
+    cliArgs.interval = parseInt(args[intervalIndex + 1], 10) * 1000;
+    if (isNaN(cliArgs.interval)) {
+      console.error(`Invalid interval value. Please provide a valid number. ${args[intervalIndex]} ${args[intervalIndex + 1]}`);
+      process.exit(1);
     }
   }
 
-  if (!fs.existsSync(subscriptionsFile)) {
-    console.error(`Error: subscriptions file not found at ${subscriptionsFile}.`);
+  const inputPath = args[0] ? path.resolve(args[0]) : path.resolve('subscriptions.txt');
+  if (fs.existsSync(inputPath) && fs.statSync(inputPath).isDirectory()) {
+    cliArgs.subscriptionsFile = path.join(inputPath, 'subscriptions.txt');
+  } else {
+    cliArgs.subscriptionsFile = inputPath;
+  }
+
+  return cliArgs;
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const cliArgs = parseCliArgs(args);
+
+  if (cliArgs.help) {
+    displayHelp();
+    process.exit(0);
+  }
+
+  if (cliArgs.create) {
+    createExample();
+    process.exit(0);
+  }
+
+  if (!fs.existsSync(cliArgs.subscriptionsFile)) {
+    console.error(`Error: subscriptions file not found at ${cliArgs.subscriptionsFile}.`);
     displayHelp();
     process.exit(1);
   }
 
-  const cliArgs = {
-    dry: args.includes('--dry'),
-  };
+  const baseDir = path.dirname(cliArgs.subscriptionsFile);
 
-  const baseDir = path.dirname(subscriptionsFile);
-  processSubscriptions(subscriptionsFile, baseDir, cliArgs);
+  if (cliArgs.interval) {
+    console.log(`Running with interval: ${cliArgs.interval / 1000} seconds`);
+    setInterval(() => processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs), cliArgs.interval);
+  }
+
+  processSubscriptions(cliArgs.subscriptionsFile, baseDir, cliArgs);
 }
 
 
 function displayHelp() {
   console.log(`
-    Usage: ytsub [subscriptions.txt] [-t interval]
+    Usage: ytsub [subscriptions.txt] [options]
 
     Commands:
       ytsub                 Try to find subscriptions.txt in current directory
-      ytsub <path>          Use a specific subscriptions.txt file or directory containing one
+      ytsub <path>          Use a specific subscriptions file or directory containing one
       ytsub --help, -h      Show this help message
       ytsub --create, -c    Create an example subscriptions.txt
 
@@ -119,13 +142,13 @@ function parseSubscriptions(filePath) {
   const globalOrganize = {};
   for (const line of preSection) {
     if (line.startsWith('-organize ')) {
-      const [, arg, key, value] = line.match(/^-(organize)\s+(.+?)\s*:\s*(.+)/) || [];
+      const [, arg, key, value] = line.match(/^-(organize)\s+["']?(.+?)["']?\s*:\s*(.+)/) || [];
       const [, pattern, flags] = value.match(/^\/(.*)\/([gimsuy]*)$/) || [];
       try {
         if (!pattern) throw 'Invalid pattern!';
         globalOrganize[key] = new RegExp(pattern, flags);
       } catch (err) {
-        console.error(`Invalid Regular Expression at PreSection ${line} ! ${err}`);
+        console.error(`Invalid Regular Expression before Sections Line: "${line}" ! Error: ${err}`);
       }
     } else {
       const args = line.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
@@ -136,23 +159,21 @@ function parseSubscriptions(filePath) {
   const subscriptions = sections.map(({ sectionName, frontMatter, body }) => {
     const args = [];
     const organize = {};
-
     for (const line of frontMatter) {
       if (line.startsWith('-organize ')) {
-        const [, arg, key, value] = line.match(/^-(organize)\s+(.+?)\s*:\s*(.+)/) || [];
+        const [, arg, key, value] = line.match(/^-(organize)\s+["']?(.+?)["']?\s*:\s*(.+)/) || [];
         const [, pattern, flags] = value.match(/^\/(.*)\/([gimsuy]*)$/) || [];
         try {
           if (!pattern) throw 'Invalid pattern!';
           organize[key] = new RegExp(pattern, flags);
         } catch (err) {
-          console.error(`Invalid Regular Expression at [${sectionName}] ${line} ! ${err}`);
+          console.error(`Invalid Regular Expression at [${sectionName}] "${line}" ! Error: ${err}`);
         }
       } else {
         const argsp = line.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
         args.push(...argsp);
       }
     }
-
     return { name: sectionName, args, organize, urls: body };
   });
 
