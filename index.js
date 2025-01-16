@@ -5,6 +5,8 @@ const util = require('util');
 const { spawn } = require('child_process');
 
 const EXAMPLE_DIR = path.join(__dirname, 'example');
+
+
 function main() {
   const args = process.argv.slice(2);
   let subscriptionsFile;
@@ -40,6 +42,7 @@ function main() {
   processSubscriptions(subscriptionsFile, baseDir, cliArgs);
 }
 
+
 function displayHelp() {
   console.log(`
     Usage: ytsub [subscriptions.txt] [-t interval]
@@ -56,6 +59,7 @@ function displayHelp() {
   `);
 }
 
+
 function createExample() {
   const exampleFile = path.join(EXAMPLE_DIR, 'subscriptions.txt');
   const destinationFile = path.join(process.cwd(), 'subscriptions.txt');
@@ -67,37 +71,6 @@ function createExample() {
   }
 }
 
-function runCommand (command, args, cwd) {
-  return new Promise((resolve, reject) => {
-
-    const argsp = args.join(' ').match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
-    const child = spawn(command, argsp, { cwd, stdio: 'inherit' });
-
-    child.on('error', (error) => {
-      reject(`Error: ${error.message}`);
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(`Process exited with code ${code}`);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-function moveFile(oldPath, newPath) {
-  return new Promise((resolve, reject) => {
-    fs.rename(oldPath, newPath, (err) => {
-      if (err) {
-        reject(`Error moving file: ${err.message}`);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
 
 function parseTxtFile(filePath) {
   const data = fs.readFileSync(filePath, 'utf8');
@@ -138,8 +111,9 @@ function parseTxtFile(filePath) {
   return { preSection, sections };
 }
 
+
 function parseSubscriptions(filePath) {
-  const { preSection, sections} = parseTxtFile(filePath);
+  const { preSection, sections } = parseTxtFile(filePath);
 
   const globalArgs = [];
   const globalOrganize = {};
@@ -188,6 +162,27 @@ function parseSubscriptions(filePath) {
 }
 
 
+async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
+  try {
+    const subsObject = parseSubscriptions(subscriptionsFile);
+    const { globalArgs, globalOrganize, subscriptions } = subsObject;
+    console.log(util.inspect(subsObject, false, null, true));
+    if (cliArgs.dry) return;
+
+    for (const subscription of subscriptions) {
+      const outputDir = path.join(baseDir, subscription.name);
+      fs.mkdirSync(outputDir, { recursive: true });
+      for (const url of subscription.urls) {
+        await downloadVideos(outputDir, url, [...globalArgs, ...subscription.args]);
+      }
+      await organizeVideos(outputDir, { ...globalOrganize, ...subscription.organize });
+    }
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+  }
+}
+
+
 async function downloadVideos(outputDir, url, args) {
   const archivePath = path.join(outputDir, '_archive.txt');
   try {
@@ -202,6 +197,28 @@ async function downloadVideos(outputDir, url, args) {
     console.error(`Failed to download videos from ${url}: ${error}`);
   }
 }
+
+
+function runCommand(command, args, cwd) {
+  return new Promise((resolve, reject) => {
+
+    const argsp = args.join(' ').match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
+    const child = spawn(command, argsp, { cwd, stdio: 'inherit' });
+
+    child.on('error', (error) => {
+      reject(`Error: ${error.message}`);
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(`Process exited with code ${code}`);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
 
 async function organizeVideos(outputDir, filters) {
   console.log('Organizing files', outputDir, filters);
@@ -223,24 +240,18 @@ async function organizeVideos(outputDir, filters) {
   }
 }
 
-async function processSubscriptions(subscriptionsFile, baseDir, cliArgs) {
-  try {
-    const subsObject = parseSubscriptions(subscriptionsFile);
-    const { globalArgs, globalOrganize, subscriptions } = subsObject;
-    console.log(util.inspect(subsObject, false, null, true));
-    if (cliArgs.dry) return;
 
-    for (const subscription of subscriptions) {
-      const outputDir = path.join(baseDir, subscription.name);
-      fs.mkdirSync(outputDir, { recursive: true });
-      for (const url of subscription.urls) {
-        await downloadVideos(outputDir, url, [...globalArgs, ...subscription.args]);
+function moveFile(oldPath, newPath) {
+  return new Promise((resolve, reject) => {
+    fs.rename(oldPath, newPath, (err) => {
+      if (err) {
+        reject(`Error moving file: ${err.message}`);
+      } else {
+        resolve();
       }
-      await organizeVideos(outputDir, {...globalOrganize, ...subscription.organize});
-    }
-  } catch (error) {
-    console.error(`Error: ${error.message}`);
-  }
+    });
+  });
 }
+
 
 main();
