@@ -1,11 +1,12 @@
-# global arguments
+# global yt-dlp arguments 
+# https://github.com/yt-dlp/yt-dlp/blob/master/README.md
 
 #--download-archive _archive.txt
 
 #--restrict-filenames
 #--windows-filenames
 
--S vcodec:h264,res,acodec:m4a
+-S vcodec:h264,res,acodec:m4a ;testing
 
 #--write-info-json
 #--write-description
@@ -21,7 +22,7 @@
 --embed-thumbnail 
 --embed-chapters
 
---parse-metadata "description:(?s)(?P<meta_comment>.+)"
+--parse-metadata "description:(?s)(?P<meta_comment>.+)" ; add yt description to video comment attribute
 --embed-metadata
 --xattrs
 
@@ -62,3 +63,19 @@ https://www.youtube.com/@BBCNews
 ----
 https://www.youtube.com/@JustinWerlein/videos
 
+
+
+[Trading/Justin Werlein]
+--no-write-subs
+--no-write-auto-subs
+-organize Recaps: /Recap/i
+-organize Charting Session: /Charting[ _]Session/i
+----
+https://www.youtube.com/@JustinWerlein/videos
+
+
+[Trading/TJR/Trade Recap]
+--date today-2weeks
+--match-filter "title!*=2016"
+----
+https://www.youtube.com/playlist?list=PLKE_22Jx497vfICwVYk-gDnBHJEw76-7n

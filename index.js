@@ -21,9 +21,9 @@ function parseCliArgs(args) {
 
   const intervalIndex = args.findIndex(arg => arg === '-t');
   if (intervalIndex !== -1 && args[intervalIndex + 1]) {
-    cliArgs.interval = parseInt(args[intervalIndex + 1], 10) * 1000;
-    if (isNaN(cliArgs.interval)) {
-      console.error(`Invalid interval value. Please provide a valid number. ${args[intervalIndex]} ${args[intervalIndex + 1]}`);
+    cliArgs.interval = parseInterval(args[intervalIndex + 1]);
+    if (!cliArgs.interval) {
+      console.error(`Invalid interval value. Please provide a valid duration (e.g., 30m, 1h, 2h30m, 1d) or a number in seconds.`);
       process.exit(1);
     }
   }
@@ -84,7 +84,7 @@ function displayHelp() {
       ytsub --create, -c    Create an example subscriptions.txt
 
     Options:
-      -t <interval>         Set a refresh interval in seconds (default: none)
+      -t <interval>         Set a refresh interval in seconds or XdXhXmXs expressiong like (e.g., 30m, 2h30m, 12h, 1d) (default: none)
       --dry                 Parse the subscriptions.txt file and don't call yt-dlp
   `);
 }
@@ -291,6 +291,21 @@ function moveFile(oldPath, newPath) {
   });
 }
 
+function parseInterval(intervalStr) {
+  const dhmsRegex = /^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/;
+  const match = intervalStr.match(dhmsRegex);
+  if (match) {
+    const days = parseInt(match[1] || 0, 10);
+    const hours = parseInt(match[2] || 0, 10);
+    const minutes = parseInt(match[3] || 0, 10);
+    const seconds = parseInt(match[4] || 0, 10);
+    return (days * 86400 + hours * 3600 + minutes * 60 + seconds) * 1000;
+  }
+  if (/^\d+$/.test(intervalStr)) {
+    return parseInt(intervalStr, 10) * 1000;
+  }
+  return 0;
+}
 
 function secondsToDhms(seconds) {
   seconds = Number(seconds);
